@@ -6,15 +6,73 @@
     <title>Document</title>
     <style>
       .chart-container {
-        width: 600px;
-        margin-bottom: 60px;
-        margin-left: 20px;
         display: inline-block;
+      }
+
+      .charts {
+        margin: 60px auto 0 auto;
+        display: grid;
+        grid-template-columns: repeat(3, 400px);
+        column-gap: 30px;
+        row-gap: 40px;
+      }
+
+      .card {
+        box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        transition: 0.3s;
+        padding: 12px;
+      }
+
+      .card:hover {
+        box-shadow: 0 6px 16px 0 rgba(0, 0, 0, 0.2);
+      }
+
+      .description {
+        grid-column: 1 / span 3;
+      }
+
+      .selected-chart {
+        grid-column: 1 / span 3;
+        overflow: hidden;
+      }
+
+      .container {
+        display: flex;
+        align-items: center;
+      }
+
+      .name {
+        text-align: center;
+        margin-top: 0;
+        margin-bottom: 30px;
+      }
+
+      .grade-container {
+        display: flex;
+      }
+
+      .grade-container > div {
+        flex-grow: 1;
       }
     </style>
   </head>
   <body>
-    <div id="charts"></div>
+    <div class="container">
+      <div id="charts" class="charts">
+        <div class="description card">
+          <h3 class="name">Chesapeake Bay MD Grade</h3>
+          <div class="grade-container">
+            <div>Overall: <b>B-</b></div>
+            <div><span id="param"></span>: <b id="grade"></b></div>
+          </div>
+        </div>
+        <div class="selected-chart card">
+          <h3 id="selected-char-name"></h3>
+          <canvas id="selected-chart"></canvas>
+        </div>
+      </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -886,6 +944,8 @@
         },
       };
 
+      let selectedChart = null;
+
       const titles = {
         bdo: "Bottom dissolved oxygen (mg/L)",
         wt: "Water temperature (°F)",
@@ -898,9 +958,13 @@
       const params = Object.keys(data[stations[0]]);
       const months = Object.keys(data[stations[0]][params[0]]);
 
-      function createChartContainer(param) {
+      function createChartContainer(param, columns) {
         const container = document.createElement("div");
-        container.className = "chart-container";
+        container.className = "chart-container card";
+
+        container.addEventListener("click", () => {
+          renderSelectedChart(param, columns);
+        });
 
         const canvas = document.createElement("canvas");
         canvas.id = param;
@@ -908,32 +972,33 @@
         const title = document.createElement("h3");
         title.innerText = titles[param];
 
-        container.append(title);
+        container.appendChild(title);
         container.appendChild(canvas);
         document.getElementById("charts").appendChild(container);
       }
 
-      function renderChart(param) {
-        createChartContainer(param);
+      function renderChartCard(param, columns) {
+        createChartContainer(param, columns);
+        renderChart(param, columns);
+      }
 
-        const columns = ["Minimum", "Maximum", "Mean"].map((column) => {
-          return months.map((month) => {
-            const stationValues = stations
-              .map((station) => data[station][param][month][column])
-              .filter((val) => val !== "Not Sampled")
-              .map((val) => Number(val));
-
-            if (stationValues.length > 0) {
-              const avg =
-                stationValues.reduce((a, b) => a + b, 0) / stationValues.length;
-              return avg;
-            } else {
-              return 0; // probably should filter it out
-            }
+      function renderSelectedChart(param, columns) {
+        if (!selectedChart) {
+          selectedChart = renderChart("selected-chart", columns);
+        } else {
+          selectedChart.data.datasets.forEach((dataset, index) => {
+            dataset.data = columns[index];
           });
-        });
+          selectedChart.update();
+        }
 
-        new Chart(document.getElementById(param), {
+        document.getElementById("selected-char-name").innerText = titles[param];
+        document.getElementById("param").innerText = titles[param];
+        document.getElementById("grade").innerText = "B+";
+      }
+
+      function renderChart(id, columns) {
+        return new Chart(document.getElementById(id), {
           type: "line",
           data: {
             labels: months,
@@ -966,9 +1031,33 @@
         });
       }
 
+      const columnsMap = params.reduce((acc, param) => {
+        const columns = ["Minimum", "Maximum", "Mean"].map((column) => {
+          return months.map((month) => {
+            const stationValues = stations
+              .map((station) => data[station][param][month][column])
+              .filter((val) => val !== "Not Sampled")
+              .map((val) => Number(val));
+
+            if (stationValues.length > 0) {
+              const avg =
+                stationValues.reduce((a, b) => a + b, 0) / stationValues.length;
+              return avg;
+            } else {
+              return 0; // probably should filter it out
+            }
+          });
+        });
+
+        acc[param] = columns;
+        return acc;
+      }, {});
+
       params.forEach((param) => {
-        renderChart(param);
+        renderChartCard(param, columnsMap[param]);
       });
+
+      renderSelectedChart(params[0], columnsMap[params[0]]);
     </script>
   </body>
 </html>
