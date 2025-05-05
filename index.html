@@ -6,13 +6,14 @@
     <title>Document</title>
     <style>
       .chart-container {
+        grid-column: auto / span 2;
         display: inline-block;
       }
 
       .charts {
         margin: 60px auto 0 auto;
         display: grid;
-        grid-template-columns: repeat(3, 400px);
+        grid-template-columns: repeat(6, 200px);
         column-gap: 30px;
         row-gap: 40px;
       }
@@ -28,12 +29,12 @@
         box-shadow: 0 6px 16px 0 rgba(0, 0, 0, 0.2);
       }
 
-      .description {
-        grid-column: 1 / span 3;
+      .grade {
+        grid-column: auto / span 3;
       }
 
       .selected-chart {
-        grid-column: 1 / span 3;
+        grid-column: 1 / span 6;
         overflow: hidden;
       }
 
@@ -47,25 +48,16 @@
         margin-top: 0;
         margin-bottom: 30px;
       }
-
-      .grade-container {
-        display: flex;
-      }
-
-      .grade-container > div {
-        flex-grow: 1;
-      }
     </style>
   </head>
   <body>
     <div class="container">
       <div id="charts" class="charts">
-        <div class="description card">
-          <h3 class="name">Chesapeake Bay MD Grade</h3>
-          <div class="grade-container">
-            <div>Overall: <b>B-</b></div>
-            <div><span id="param"></span>: <b id="grade"></b></div>
-          </div>
+        <div id="overall-grade-container" class="grade card">
+          <div>Overall: <b id="overall-grade">B-</b></div>
+        </div>
+        <div id="param-grade-container" class="grade card">
+          <div><span id="param"></span>: <b id="grade"></b></div>
         </div>
         <div class="selected-chart card">
           <h3 id="selected-char-name"></h3>
@@ -958,6 +950,22 @@
       const params = Object.keys(data[stations[0]]);
       const months = Object.keys(data[stations[0]][params[0]]);
 
+      const grades = [
+        "A+",
+        "A",
+        "A-",
+        "B+",
+        "B",
+        "B-",
+        "C+",
+        "C",
+        "C-",
+        "D+",
+        "D",
+        "D-",
+        "F",
+      ];
+
       function createChartContainer(param, columns) {
         const container = document.createElement("div");
         container.className = "chart-container card";
@@ -982,6 +990,27 @@
         renderChart(param, columns);
       }
 
+      function getRandomGrade() {
+        const index = Math.floor(Math.random() * grades.length);
+        return grades[index];
+      }
+
+      const gradeColors = new Map([
+        ["A+", "#c8f7c5"],
+        ["A", "#d6f5c9"],
+        ["A-", "#e4f5c3"],
+        ["B+", "#f0f2b6"],
+        ["B", "#f7ec9f"],
+        ["B-", "#fbe590"],
+        ["C+", "#fcd982"],
+        ["C", "#fbc471"],
+        ["C-", "#fbb05e"],
+        ["D+", "#f98d5c"],
+        ["D", "#f7685a"],
+        ["D-", "#f33c3c"],
+        ["F", "#e42525"],
+      ]);
+
       function renderSelectedChart(param, columns) {
         if (!selectedChart) {
           selectedChart = renderChart("selected-chart", columns);
@@ -994,7 +1023,11 @@
 
         document.getElementById("selected-char-name").innerText = titles[param];
         document.getElementById("param").innerText = titles[param];
-        document.getElementById("grade").innerText = "B+";
+
+        const grade = getRandomGrade();
+        document.getElementById("grade").innerText = grade;
+        document.getElementById("param-grade-container").style.backgroundColor =
+          gradeColors.get(grade);
       }
 
       function renderChart(id, columns) {
@@ -1058,6 +1091,11 @@
       });
 
       renderSelectedChart(params[0], columnsMap[params[0]]);
+
+      const overallGrade = getRandomGrade();
+      document.getElementById("overall-grade").innerText = overallGrade;
+      document.getElementById("overall-grade-container").style.backgroundColor =
+        gradeColors.get(overallGrade);
     </script>
   </body>
 </html>
