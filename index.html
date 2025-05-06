@@ -266,6 +266,11 @@
                 data: columns[2],
                 borderWidth: 1,
               },
+              {
+                label: "2025",
+                data: columns[3],
+                borderWidth: 1,
+              },
             ],
           },
           // options: {
@@ -279,7 +284,7 @@
       }
 
       const columnsMap = params.reduce((acc, param) => {
-        const columns = ["Minimum", "Maximum", "Mean"].map((column) => {
+        const columns = ["Minimum", "Maximum", "Mean", 2025].map((column) => {
           return months.map((month) => {
             const stationValues = stations
               .map((station) => eotb[station][param][month][column])
@@ -291,7 +296,7 @@
                 stationValues.reduce((a, b) => a + b, 0) / stationValues.length;
               return avg;
             } else {
-              return 0; // probably should filter it out
+              return null;
             }
           });
         });
