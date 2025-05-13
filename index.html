@@ -68,10 +68,10 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <script src="./noaa.js"></script>
     <script src="./eotb.js"></script>
 
     <script>
+      let selectedChartType = null;
       let selectedChart = null;
 
       const titles = {
@@ -149,18 +149,10 @@
         ["F", "#e42525"],
       ]);
 
-      function renderSelectedChart(param, columns) {
-        if (!selectedChart) {
-          selectedChart = renderChart("selected-chart", columns);
-        } else {
-          selectedChart.data.datasets.forEach((dataset, index) => {
-            dataset.data = columns[index];
-          });
-          selectedChart.update();
-        }
-
-        document.getElementById("selected-char-name").innerText = titles[param];
-        document.getElementById("param").innerText = titles[param];
+      function updateSelectChartDetails(param) {
+        document.getElementById("selected-char-name").innerText =
+          titles[param] ?? param;
+        document.getElementById("param").innerText = titles[param] ?? param;
 
         const grade = getRandomGrade();
         document.getElementById("grade").innerText = grade;
@@ -168,85 +160,106 @@
           gradeColors.get(grade);
       }
 
-      function renderNoaaCharts() {
-        const noaaParams = ["WDIR", "WTMP"];
+      function renderSelectedChart(param, columns) {
+        if (!selectedChart) {
+          selectedChart = renderChart("selected-chart", columns);
+        } else {
+          if (selectedChartType === "eotb") {
+            selectedChart.data.datasets.forEach((dataset, index) => {
+              dataset.data = columns[index];
+            });
+          } else {
+            const config = getEotbChartConfig(columns);
+            selectedChart.data = config.data;
+          }
 
-        const stations = Object.keys(noaa);
-
-        const grouped = {};
-
-        stations.forEach((station) => {
-          noaa[station].forEach((row) => {
-            const { YY, MM, DD, hh, mm, ...params } = row;
-            const key = `${YY}-${MM}-${DD}`;
-            grouped[key] = grouped[key] || [];
-            grouped[key].push(params);
-          });
-        });
-
-        const days = [];
-        const labels = [];
-        const date = new Date();
-        date.setDate(date.getDate() - 30);
-        for (let i = 0; i < 30; i++) {
-          const day = date.toISOString().split("T")[0];
-          days.push(day);
-          const formatted = date.toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-          });
-
-          labels.push(formatted);
-
-          date.setDate(date.getDate() + 1);
+          selectedChart.update();
         }
+        selectedChartType = "eotb";
 
-        function renderNoaaChart(id, label, data, days) {
-          return new Chart(document.getElementById(id), {
-            type: "line",
-            data: {
-              labels,
-              datasets: [
-                {
-                  label,
-                  data,
-                  borderWidth: 1,
-                },
-              ],
-            },
-            options: {
-              scales: {
-                x: {
-                  ticks: {
-                    maxTicksLimit: 12,
-                  },
+        updateSelectChartDetails(param);
+      }
+
+      function renderSelectedNoaaChart(param, data, labels) {
+        if (!selectedChart) {
+          selectedChart = renderNoaaChart(
+            "selected-chart",
+            param,
+            data,
+            labels
+          );
+        } else {
+          if (selectedChartType === "noaa") {
+            selectedChart.data.datasets[0].data = data;
+          } else {
+            const config = getNoaaChartConfig(param, data, labels);
+
+            selectedChart.data = config.data;
+            selectedChart.options = config.options;
+          }
+
+          selectedChart.update();
+        }
+        selectedChartType = "noaa";
+
+        updateSelectChartDetails(param);
+      }
+
+      function getNoaaChartConfig(label, data, labels) {
+        return {
+          data: {
+            labels,
+            datasets: [
+              {
+                label,
+                data,
+                borderWidth: 1,
+              },
+            ],
+          },
+          options: {
+            scales: {
+              x: {
+                ticks: {
+                  maxTicksLimit: 12,
                 },
               },
             },
-          });
-        }
+          },
+        };
+      }
 
-        noaaParams.forEach((param) => {
-          const data = days.map((day) => {
-            const rows = grouped[day];
-            const numbers = rows
-              .map((row) => Number(row[param]))
-              .filter((value) => !Number.isNaN(value)); // filters out MM values, no clue what those are
-
-            if (!numbers.length) return null;
-
-            return numbers.reduce((a, b) => a + b, 0) / numbers.length;
-          });
-
-          const id = `noaa-${param}`;
-          createChartContainer(id, () => {}, param);
-          renderNoaaChart(id, param, data, days);
+      function renderNoaaChart(id, label, data, labels) {
+        return new Chart(document.getElementById(id), {
+          type: "line",
+          ...getNoaaChartConfig(label, data, labels),
         });
       }
 
-      function renderChart(id, columns) {
-        return new Chart(document.getElementById(id), {
-          type: "line",
+      async function renderNoaaCharts() {
+        const noaa = await fetch("./noaa.json").then((response) =>
+          response.json()
+        );
+
+        noaa.forEach((item) => {
+          const { name, values, labels } = item;
+
+          if (!values.length) return;
+
+          const id = `noaa-${name}`;
+          createChartContainer(
+            id,
+            () => {
+              renderSelectedNoaaChart(name, values, labels);
+            },
+            name
+          );
+          renderNoaaChart(id, name, values, labels);
+        });
+      }
+
+      function getEotbChartConfig(columns) {
+        return {
           data: {
             labels: months,
             datasets: [
@@ -281,13 +294,13 @@
               },
             ],
           },
-          // options: {
-          //   scales: {
-          //     y: {
-          //       beginAtZero: true,
-          //     },
-          //   },
-          // },
+        };
+      }
+
+      function renderChart(id, columns) {
+        return new Chart(document.getElementById(id), {
+          type: "line",
+          ...getEotbChartConfig(columns),
         });
       }
 
